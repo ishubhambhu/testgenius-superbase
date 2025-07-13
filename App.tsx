@@ -1,6 +1,10 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
+import { AuthWrapper } from './components/AuthWrapper';
+import { ProfilePage } from './components/ProfilePage';
+import { SettingsPage } from './components/SettingsPage';
+import { LeaderboardPage } from './components/LeaderboardPage';
+import { useAuth } from './hooks/useAuth';
+import { saveTestToSupabase, updateTestInSupabase, getTestHistoryFromSupabase, deleteTestFromSupabase, clearAllTestHistoryFromSupabase } from './services/testHistoryService';
 import Header from './components/Header';
 import { HomeView } from './components/HomeView';
 import { TestSetupForm } from './components/TestSetupForm';
@@ -12,7 +16,7 @@ import { HistoryView } from './components/HistoryView';
 import { ResumeTestBanner } from './components/ResumeTestBanner';
 import { Question, TestInputMethod, TimeSettings, TestPhase, QuestionStatus, LanguageOption, NegativeMarkingSettings, PendingTestConfig, TestHistoryEntry, InProgressTestState, DocumentWithViewTransitions } from './types';
 import { generateQuestionsFromContent, extractTextFromInlineData } from './services/geminiService';
-import { SUPPORTED_PDF_MIME_TYPE, LOCAL_STORAGE_HISTORY_KEY, LOCAL_STORAGE_IN_PROGRESS_KEY } from './constants'; 
+import { SUPPORTED_PDF_MIME_TYPE, LOCAL_STORAGE_IN_PROGRESS_KEY } from './constants'; 
 import {XCircleIcon } from './components/Icons';
 import Button from './components/Button';
 
@@ -60,12 +64,14 @@ const GeneratingTestView: React.FC<{ testName: string }> = ({ testName }) => {
 };
 
 export function App() {
+  const { user } = useAuth();
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const savedMode = localStorage.getItem('darkMode');
     return savedMode ? JSON.parse(savedMode) : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   const [testPhase, setTestPhase] = useState<TestPhase>(TestPhase.HOME);
+  const [currentPage, setCurrentPage] = useState<'app' | 'profile' | 'settings' | 'leaderboard'>('app');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(0);
@@ -78,18 +84,7 @@ export function App() {
 
 
   const [currentSetupConfig, setCurrentSetupConfig] = useState<PendingTestConfig | null>(null);
-  const [testHistory, setTestHistory] = useState<TestHistoryEntry[]>(() => {
-    const savedHistory = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
-    if (savedHistory) {
-      try {
-        return JSON.parse(savedHistory);
-      } catch (error) {
-        console.error("Failed to parse test history from localStorage:", error);
-        return [];
-      }
-    }
-    return [];
-  });
+  const [testHistory, setTestHistory] = useState<TestHistoryEntry[]>([]);
   const [currentTestSessionId, setCurrentTestSessionId] = useState<string | null>(null);
   const [isRetakeMode, setIsRetakeMode] = useState<boolean>(false);
   const [savedInProgressTest, setSavedInProgressTest] = useState<InProgressTestState | null>(null);
@@ -98,8 +93,12 @@ export function App() {
 
 
   useEffect(() => {
-    // This effect runs once on mount to check for an in-progress test.
-    // History is now loaded synchronously in the useState initializer.
+    // Load test history from Supabase when user is authenticated
+    if (user) {
+      loadTestHistory();
+    }
+    
+    // Check for in-progress test
     const savedInProgressData = localStorage.getItem(LOCAL_STORAGE_IN_PROGRESS_KEY);
     if (savedInProgressData) {
       try {
@@ -114,11 +113,12 @@ export function App() {
         localStorage.removeItem(LOCAL_STORAGE_IN_PROGRESS_KEY);
       }
     }
-  }, []);
+  }, [user]);
 
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(testHistory));
-  }, [testHistory]);
+  const loadTestHistory = async () => {
+    const history = await getTestHistoryFromSupabase();
+    setTestHistory(history);
+  };
 
   useEffect(() => {
     if (testPhase === TestPhase.IN_PROGRESS && currentSetupConfig && currentTestSessionId && questions.length > 0) {
@@ -161,6 +161,22 @@ export function App() {
     });
   };
   
+  const handleNavigateToProfile = () => {
+    setCurrentPage('profile');
+  };
+
+  const handleNavigateToSettings = () => {
+    setCurrentPage('settings');
+  };
+
+  const handleNavigateToLeaderboard = () => {
+    setCurrentPage('leaderboard');
+  };
+
+  const handleBackToApp = () => {
+    setCurrentPage('app');
+  };
+
   const clearInProgressTest = useCallback(() => {
     localStorage.removeItem(LOCAL_STORAGE_IN_PROGRESS_KEY);
     setSavedInProgressTest(null);
@@ -320,7 +336,7 @@ export function App() {
   };
 
   const saveOrUpdateTestInHistory = useCallback((questionsToScore: Question[], isFromReviewCorrection: boolean) => {
-    if (!currentSetupConfig || questionsToScore.length === 0 || !currentTestSessionId) return;
+    if (!currentSetupConfig || questionsToScore.length === 0 || !currentTestSessionId || !user) return;
 
     const attemptedCount = questionsToScore.filter(q => q.status === QuestionStatus.ATTEMPTED).length;
     const correctCount = questionsToScore.filter(q => q.userAnswerIndex === q.correctAnswerIndex && q.status === QuestionStatus.ATTEMPTED).length;
@@ -345,30 +361,32 @@ export function App() {
     const finalTestNameForHistory = currentTestName || currentSetupConfig.testName || "Untitled Test";
     const sessionHasUserCorrections = isFromReviewCorrection || questionsToScore.some(q => q.wasCorrectedByUser);
 
-    const historyEntry: TestHistoryEntry = {
-      id: currentTestSessionId, 
-      testName: finalTestNameForHistory,
-      dateCompleted: Date.now(),
-      scorePercentage: score,
-      totalQuestions: questionsToScore.length,
-      correctAnswers: correctCount,
-      attemptedQuestions: attemptedCount,
-      negativeMarkingSettings: currentSetupConfig.negativeMarking,
-      originalConfig: { ...currentSetupConfig, testName: finalTestNameForHistory }, 
-      questions: questionsToScore,
-      wasCorrectedByUser: sessionHasUserCorrections,
-    };
+    // Check if this is an update to existing test
+    const existingEntry = testHistory.find(entry => entry.id === currentTestSessionId);
     
-    setTestHistory(prevHistory => {
-      const existingEntryIndex = prevHistory.findIndex(entry => entry.id === currentTestSessionId);
-      if (existingEntryIndex > -1) {
-        const updatedHistory = [...prevHistory];
-        updatedHistory[existingEntryIndex] = historyEntry; 
-        return updatedHistory;
-      }
-      return [historyEntry, ...prevHistory.filter(entry => entry.id !== currentTestSessionId)]; 
-    });
-  }, [currentSetupConfig, currentTestName, currentTestSessionId]);
+    if (existingEntry) {
+      // Update existing test
+      updateTestInSupabase(currentTestSessionId, questionsToScore, sessionHasUserCorrections)
+        .then(success => {
+          if (success) {
+            loadTestHistory(); // Reload from Supabase
+          }
+        });
+    } else {
+      // Save new test
+      saveTestToSupabase(
+        finalTestNameForHistory,
+        questionsToScore,
+        { ...currentSetupConfig, testName: finalTestNameForHistory },
+        currentSetupConfig.negativeMarking
+      ).then(testId => {
+        if (testId) {
+          setCurrentTestSessionId(testId);
+          loadTestHistory(); // Reload from Supabase
+        }
+      });
+    }
+  }, [currentSetupConfig, currentTestName, currentTestSessionId, testHistory, user, loadTestHistory]);
 
 
   const handleSubmitTest = useCallback(() => {
@@ -492,13 +510,21 @@ export function App() {
 
   const handleClearHistory = () => {
     if (window.confirm("Are you sure you want to clear all test history? This action cannot be undone.")) {
-      setTestHistory([]);
+      clearAllTestHistoryFromSupabase().then(success => {
+        if (success) {
+          setTestHistory([]);
+        }
+      });
     }
   };
   
   const handleDeleteHistoryEntry = (idToDelete: string) => {
     if (window.confirm("Are you sure you want to delete this test from your history? This action cannot be undone.")) {
-      setTestHistory(prev => prev.filter(entry => entry.id !== idToDelete));
+      deleteTestFromSupabase(idToDelete).then(success => {
+        if (success) {
+          loadTestHistory();
+        }
+      });
     }
   };
 
@@ -683,26 +709,71 @@ export function App() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <div className="sticky top-0 z-50">
-        <Header 
-          darkMode={darkMode} 
-          toggleDarkMode={toggleDarkMode} 
-          onNavigateToHistory={handleNavigateToHistory} 
-          onNavigateHome={handleNavigateHome} 
+  // Handle page navigation
+  if (currentPage === 'profile') {
+    return (
+      <AuthWrapper>
+        <ProfilePage 
+          onNavigateHome={handleBackToApp}
+          onNavigateToHistory={() => {
+            setCurrentPage('app');
+            setTestPhase(TestPhase.HISTORY);
+          }}
+          onNavigateToSettings={handleNavigateToSettings}
         />
-        {savedInProgressTest && testPhase !== TestPhase.IN_PROGRESS && (
-          <ResumeTestBanner 
-            onResume={handleResumeTest}
-            onCancel={handleCancelInProgressTest}
-            testName={savedInProgressTest.currentSetupConfig.testName}
+      </AuthWrapper>
+    );
+  }
+
+  if (currentPage === 'settings') {
+    return (
+      <AuthWrapper>
+        <SettingsPage 
+          onNavigateHome={handleBackToApp}
+          onNavigateToProfile={handleNavigateToProfile}
+          onNavigateToHistory={() => {
+            setCurrentPage('app');
+            setTestPhase(TestPhase.HISTORY);
+          }}
+          darkMode={darkMode}
+          toggleDarkMode={() => toggleDarkMode({} as React.MouseEvent)}
+        />
+      </AuthWrapper>
+    );
+  }
+
+  if (currentPage === 'leaderboard') {
+    return (
+      <AuthWrapper>
+        <LeaderboardPage onNavigateHome={handleBackToApp} />
+      </AuthWrapper>
+    );
+  }
+
+  return (
+    <AuthWrapper>
+      <div className="min-h-screen flex flex-col bg-background">
+        <div className="sticky top-0 z-50">
+          <Header 
+            darkMode={darkMode} 
+            toggleDarkMode={toggleDarkMode} 
+            onNavigateToHistory={handleNavigateToHistory} 
+            onNavigateHome={handleNavigateHome}
+            onNavigateToLeaderboard={handleNavigateToLeaderboard}
+            onNavigateToProfile={handleNavigateToProfile}
           />
-        )}
+          {savedInProgressTest && testPhase !== TestPhase.IN_PROGRESS && (
+            <ResumeTestBanner 
+              onResume={handleResumeTest}
+              onCancel={handleCancelInProgressTest}
+              testName={savedInProgressTest.currentSetupConfig.testName}
+            />
+          )}
+        </div>
+        <div className={`flex-grow overflow-auto ${testPhase === TestPhase.GENERATING ? 'flex items-center justify-center' : ''}`}>
+          {renderContent()}
+        </div>
       </div>
-      <div className={`flex-grow overflow-auto ${testPhase === TestPhase.GENERATING ? 'flex items-center justify-center' : ''}`}>
-        {renderContent()}
-      </div>
-    </div>
+    </AuthWrapper>
   );
 }
