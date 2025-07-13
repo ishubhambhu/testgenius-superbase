@@ -1,6 +1,8 @@
 import React from 'react';
 import { APP_NAME } from '../constants';
-import { SunIcon, MoonIcon, HistoryIcon, MortarBoardIcon } from './Icons';
+import { SunIcon, MoonIcon, HistoryIcon, MortarBoardIcon, LeaderboardIcon, UserIcon } from './Icons';
+import { UserAvatar } from './UserAvatar';
+import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 
 interface HeaderProps {
@@ -8,9 +10,20 @@ interface HeaderProps {
   toggleDarkMode: (event: React.MouseEvent) => void;
   onNavigateToHistory: () => void;
   onNavigateHome: () => void;
+  onNavigateToLeaderboard?: () => void;
+  onNavigateToProfile?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode, onNavigateToHistory, onNavigateHome }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  darkMode, 
+  toggleDarkMode, 
+  onNavigateToHistory, 
+  onNavigateHome,
+  onNavigateToLeaderboard,
+  onNavigateToProfile
+}) => {
+  const { user } = useAuth();
+
   return (
     <header className="bg-card text-card-foreground p-4 border-b border-border sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
@@ -25,6 +38,17 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode, onNavigateToH
           </h1>
         </button>
         <div className="flex items-center space-x-1">
+          {onNavigateToLeaderboard && (
+            <Button
+              onClick={onNavigateToLeaderboard}
+              variant="ghost"
+              size="icon"
+              aria-label="View leaderboard"
+              title="View leaderboard"
+            >
+              <LeaderboardIcon className="h-5 w-5" />
+            </Button>
+          )}
           <Button
             onClick={onNavigateToHistory}
             variant="ghost"
@@ -43,6 +67,17 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode, onNavigateToH
           >
             {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </Button>
+          {user && onNavigateToProfile && (
+            <Button
+              onClick={onNavigateToProfile}
+              variant="ghost"
+              size="icon"
+              aria-label="View profile"
+              title="View profile"
+            >
+              <UserAvatar size="sm" />
+            </Button>
+          )}
         </div>
       </div>
     </header>
