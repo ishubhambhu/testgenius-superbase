@@ -69,11 +69,7 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE test_history ENABLE ROW LEVEL SECURITY;
 
 -- Policies for user_profiles
-CREATE POLICY "Users can read own profile"
-  ON user_profiles
-  FOR SELECT
-  TO authenticated
-  USING (auth.uid() = id);
+
 
 CREATE POLICY "Users can update own profile"
   ON user_profiles
