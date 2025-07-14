@@ -1,10 +1,7 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { WelcomePage } from './WelcomePage';
 
-interface AuthWrapperProps {
-  children: React.ReactNode;
-}
 
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const { user, loading } = useAuth();

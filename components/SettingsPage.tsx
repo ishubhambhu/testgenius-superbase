@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 import { ChevronLeftIcon, SunIcon, MoonIcon } from './Icons';

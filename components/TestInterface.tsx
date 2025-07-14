@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Question } from '../types';
 import QuestionView from './QuestionView';
 import Sidebar from './Sidebar';

@@ -1,4 +1,4 @@
-import React from 'react';
+import { } from 'react';
 import Button from './Button';
 import { ClockIcon } from './Icons';
 

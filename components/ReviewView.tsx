@@ -1,6 +1,6 @@
 
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Question, ChatMessage } from '../types';
 import Button from './Button';
 import { generateExplanationForQuestion, getGeminiFollowUpChat } from '../services/geminiService';

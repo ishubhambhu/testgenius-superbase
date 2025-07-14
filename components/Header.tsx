@@ -1,4 +1,4 @@
-import React from 'react';
+import { } from 'react';
 import { APP_NAME } from '../constants';
 import { SunIcon, MoonIcon, HistoryIcon, MortarBoardIcon, LeaderboardIcon, UserIcon } from './Icons';
 import { UserAvatar } from './UserAvatar';

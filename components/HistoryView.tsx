@@ -1,5 +1,5 @@
 
-import React from 'react';
+import { } from 'react';
 import { TestHistoryEntry, TestInputMethod } from '../types';
 import Button from './Button';
 import { ArrowPathIcon, TrashIcon, EyeIcon, ChevronLeftIcon, ChartBarIcon } from './Icons';

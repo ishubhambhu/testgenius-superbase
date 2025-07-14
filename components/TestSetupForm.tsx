@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { TestInputMethod, TimeSettings, LanguageOption, NegativeMarkingSettings, PendingTestConfig } from '../types';
 import { 
   DEFAULT_NUM_QUESTIONS, MAX_QUESTIONS, MIN_QUESTIONS, MAX_FILE_SIZE_MB, 

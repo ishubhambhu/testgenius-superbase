@@ -1,4 +1,4 @@
-import React from 'react';
+import { useMemo } from 'react';
 import { Question, QuestionStatus } from '../types';
 import { CheckCircleIcon, XCircleIcon, MinusCircleIcon } from './Icons';
 
@@ -67,7 +67,7 @@ const getTestStatusStylesAndIcon = (question: Question) => {
 
 const Sidebar: React.FC<SidebarProps> = ({ questions, currentQuestionIndex, onNavigate, reviewMode = false }) => {
 
-  const summary = React.useMemo(() => {
+  const summary = useMemo(() => {
     if (reviewMode) return null;
     return {
       answered: { count: questions.filter(q => q.status === QuestionStatus.ATTEMPTED).length, color: 'bg-green-500' },

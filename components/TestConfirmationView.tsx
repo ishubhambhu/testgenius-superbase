@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { TestInputMethod, TimeSettings, NegativeMarkingSettings, LanguageOption } from '../types';
 import Button from './Button';
 import { ChevronLeftIcon, EditIcon } from './Icons'; 

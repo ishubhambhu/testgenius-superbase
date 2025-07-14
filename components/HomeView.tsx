@@ -1,4 +1,4 @@
-import React from 'react';
+import { } from 'react';
 import { TestInputMethod } from '../types';
 import { DocumentTextIcon, BookOpenIcon, LightBulbIcon, ChevronRightIcon } from './Icons';
 import { APP_NAME } from '../constants';
